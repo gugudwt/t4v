@@ -239,9 +239,9 @@ function dividi(m) {
   const va = m.a.find(v => CEREALI.includes(v.id));
   const vc = m.c.find(v => CEREALI.includes(v.id));
   if (!va || !vc || va.id !== vc.id || va.q === vc.q) return '';
-  const nome = va.nome.split(' ')[0].toLowerCase();
+  const pasta = va.id.startsWith('pasta');
   return `<div class="dividi" data-qa="${va.q}" data-qc="${vc.q}">
-    <label for="cotto">Cuocete il ${esc(nome)} insieme? Scrivi il peso da cotto e lo divido</label>
+    <label for="cotto">Cuocete ${pasta ? 'la pasta' : 'il riso'} insieme? Scrivi il peso da ${pasta ? 'cotta' : 'cotto'} e ${pasta ? 'la' : 'lo'} divido</label>
     <div class="dividi-riga"><input id="cotto" type="number" inputmode="numeric" min="1" placeholder="g"><output for="cotto"></output></div>
   </div>`;
 }
