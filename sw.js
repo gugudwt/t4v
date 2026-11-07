@@ -1,6 +1,6 @@
 'use strict';
 // La versione la scrive build.py: se cambia un file, la cache si rifà da sola.
-const CACHE = 'tavola-a1558f90d52c';
+const CACHE = 'tavola-7bbcae0ebc36';
 const FILE = [
   './', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest',
   'fonts/caprasimo.woff2', 'fonts/atkinson-400.woff2', 'fonts/atkinson-700.woff2',

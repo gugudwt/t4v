@@ -57,7 +57,15 @@ async function apri(chiave, busta) {
 
 /* Avvio */
 async function avvia() {
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    // Una versione nuova prende il posto della vecchia: si ricarica da sola, una volta.
+    const giaAttivo = !!navigator.serviceWorker.controller;
+    let ricaricata = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (giaAttivo && !ricaricata) { ricaricata = true; location.reload(); }
+    });
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
   let busta;
   try {
     const r = await fetch('dati.bin', { cache: 'no-cache' });
@@ -125,9 +133,11 @@ function scegli() {
   const [a, c] = D.persone;
   app.innerHTML = `<section class="scelta">
     <header><h1>Chi sta guardando?</h1><p>Vedrai i grammi di questa persona. Puoi cambiare quando vuoi.</p></header>
-    <button class="uno" data-scegli="${a.id}">${esc(a.nome)}</button>
-    <button class="altra" data-scegli="${c.id}">${esc(c.nome)}</button>
-    <button class="entrambi" data-scegli="ac">Tutti e due</button>
+    <div class="scelta-bottoni">
+      <button class="uno" data-scegli="${a.id}">${esc(a.nome)}</button>
+      <button class="altra" data-scegli="${c.id}">${esc(c.nome)}</button>
+      <button class="entrambi" data-scegli="ac">Tutti e due</button>
+    </div>
   </section>`;
 }
 
@@ -220,17 +230,19 @@ function vistaGiorno(gid) {
     const n = ricetteDelPasto(m).length;
     const testa = `<div class="fascia-testa"><h2>${esc(nome)}</h2>${n ? `<span>${n} ricette</span>` : ''}</div>`;
     const piatto = m.piatto ? `<p class="piatto">${esc(m.piatto)}</p>` : '';
+    const prime = ricetteDelPasto(m).sort((x, y) => D.ricette[x.id].a - D.ricette[y.id].a).slice(0, 4);
+    const anteprima = prime.length ? `<ul class="anteprima">${prime.map(r => `<li><b>${D.ricette[r.id].a}</b><span>${esc(D.ricette[r.id].t)}</span></li>`).join('')}</ul>` : '';
     if (pid === 'arco') {
       return `<section class="fascia" data-pasto="arco">${testa}${tabella(m)}<p class="avviso">${esc(D.sintesiArco)}</p></section>`;
     }
-    return `<a class="fascia" data-pasto="${pid}" href="#/pasto/${gid}/${pid}">${testa}${piatto}${tabella(m)}</a>`;
+    return `<a class="fascia" data-pasto="${pid}" href="#/pasto/${gid}/${pid}">${testa}${piatto}${tabella(m)}${anteprima}</a>`;
   }).join('');
-  app.innerHTML = `<header class="testa">
+  app.innerHTML = `<div class="pagina"><header class="testa giorno">
     <div class="testa-riga"><h1>${esc(g.nome)}</h1>${bottoniChi()}</div>
     <p>${eOggi ? `Oggi, ${esc(data)}` : 'Il menu di questo giorno'}</p>
     <nav class="settimana" aria-label="Giorni della settimana">${D.giorni.map((x, i) =>
       `<a href="#/giorno/${x.id}" aria-label="${esc(x.nome)}" class="${x.id === oggiId() ? 'oggi' : ''}"${x.id === gid ? ' aria-current="page"' : ''}>${LETTERE[i]}</a>`).join('')}</nav>
-  </header>${fasce}`;
+  </header><div class="fasce">${fasce}</div></div>`;
 }
 
 /* Un pasto */
@@ -272,7 +284,7 @@ function vistaPasto(gid, pid) {
     ? `<p class="promemoria">I fagioli secchi vanno in ammollo la sera prima. In scatola o già cotti: ${persone().map(p => `${esc(nomeDi(p))} ${esc(fagioli[p])}`).join(', ')}.</p>` : '';
   const riso = pid === 'pranzo' && m.a.some(v => v.id === 'riso-integrale')
     ? `<p class="promemoria">Il riso integrale cuoce 35 minuti: puoi lessarlo la sera prima.</p>` : '';
-  app.innerHTML = `<section class="eroe" data-pasto="${pid}">
+  app.innerHTML = `<div class="pannelli"><section class="eroe" data-pasto="${pid}">
       <div class="eroe-sopra"><a class="indietro" href="#/giorno/${gid}">${esc(g.nome)}</a>${bottoniChi()}</div>
       <h1>${esc(NOME_PASTO[pid])}</h1>
       ${m.piatto ? `<p class="piatto">${esc(m.piatto)}</p>` : ''}
@@ -283,7 +295,7 @@ function vistaPasto(gid, pid) {
       <h2>Ricette</h2>
       <p class="sotto">Dalla più veloce alla più elaborata, con gli alimenti e i grammi di questo pasto. Il tempo è quello di lavoro.</p>
       ${ricette}${nota}${riso}
-    </section>`;
+    </section></div>`;
 }
 
 /* Una ricetta */
@@ -297,7 +309,7 @@ function vistaRicetta(gid, pid, rid) {
     c: per.includes('c') ? m.c : [],
   };
   const olio = r.o ? `${r.o} ${r.o === 1 ? 'cucchiaino' : 'cucchiaini'} d'olio a testa` : '';
-  app.innerHTML = `<section class="eroe ricetta" data-pasto="${pid}">
+  app.innerHTML = `<div class="pannelli"><section class="eroe ricetta" data-pasto="${pid}">
       <div class="eroe-sopra"><a class="indietro" href="#/pasto/${gid}/${pid}">${esc(NOME_PASTO[pid])}, ${esc(g.nome.toLowerCase())}</a>${bottoniChi()}</div>
       <h1>${esc(r.t)}</h1>
       <div class="meta"><span><b>${r.a} min</b> di lavoro</span>${r.m > r.a ? `<span><b>${r.m >= 180 ? 'riposo lungo' : `${r.m} min`}</b> in tutto</span>` : ''}</div>
@@ -307,7 +319,7 @@ function vistaRicetta(gid, pid, rid) {
       <h2>Come si fa</h2>
       <ol class="passi">${r.p.map(s => `<li><span>${esc(s)}</span></li>`).join('')}</ol>
       <p class="promemoria">${olio ? `Questa ricetta usa ${esc(olio)}, dal conto del giorno. ` : ''}Pesa tutto a crudo, solo la parte che si mangia.</p>
-    </section>`;
+    </section></div>`;
 }
 
 /* Tutte le ricette */
@@ -320,7 +332,7 @@ function vistaRicette() {
         ${voci.map(([k, t]) => `<button data-filtro="${k}" aria-pressed="${filtro.pasto === k}">${t}</button>`).join('')}
         <button data-veloci aria-pressed="${filtro.veloci}">Entro 15 minuti</button>
       </div></header>
-    <section class="corpo" style="padding-top:6px"><ol class="scala" id="listaR"></ol></section>`;
+    <section class="corpo pieno" style="padding-top:6px"><ol class="scala larga" id="listaR"></ol></section>`;
   document.querySelector('[data-filtro][aria-pressed=true]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   elencoRicette();
 }
@@ -351,7 +363,7 @@ function vistaAlimenti() {
   app.innerHTML = `<header class="testa"><h1>Alimenti</h1>
       <p>Tutto ciò che c'è nel piano, con le alternative.</p>
       <input class="cerca" id="cercaA" type="search" placeholder="Cerca un alimento" aria-label="Cerca un alimento"></header>
-    <section class="corpo" style="padding-top:6px" id="listaA"></section>`;
+    <section class="corpo pieno" style="padding-top:6px" id="listaA"></section>`;
   elencoAlimenti('');
 }
 
@@ -361,10 +373,10 @@ function elencoAlimenti(q) {
   const html = D.categorie.map(([cat, titolo]) => {
     const l = voci.filter(([, a]) => a.cat === cat).sort((x, y) => x[1].nome.localeCompare(y[1].nome, 'it'));
     if (!l.length) return '';
-    return `<h3>${esc(titolo)}</h3><div class="elenco">${l.map(([id, a]) => {
+    return `<div class="categoria"><h3>${esc(titolo)}</h3><div class="elenco">${l.map(([id, a]) => {
       const n = altContate(id);
-      return `<button data-scheda="${esc(id)}">${esc(a.nome)}<span>${n ? `${n} alternative` : 'nessuna alternativa'}</span></button>`;
-    }).join('')}</div>`;
+      return `<button data-scheda="${esc(id)}">${esc(a.nome)}<span>${n ? `${n} ${n === 1 ? 'alternativa' : 'alternative'}` : 'nessuna alternativa'}</span></button>`;
+    }).join('')}</div></div>`;
   }).join('');
   document.getElementById('listaA').innerHTML = html || `<p class="vuoto">Nessun alimento trovato. Prova con un altro nome.</p>`;
 }
@@ -382,9 +394,9 @@ function vistaRegole() {
   disegnaNav('regole');
   const aggiornato = new Date(D.aggiornato).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
   app.innerHTML = `<header class="testa"><h1>Regole</h1><p>Le indicazioni della dottoressa, in breve.</p></header>
-    <section class="corpo" style="padding-top:0">
+    <section class="corpo pieno regole" style="padding-top:0">
       ${D.regole.map(([t, l]) => `<div class="regola"><h2>${esc(t)}</h2><ul>${l.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}
-      <div class="regola"><h2>Questo telefono</h2>
+      <div class="regola"><h2>Questo dispositivo</h2>
         <p class="sotto">Piano aggiornato al ${esc(aggiornato)}.</p>
         <button class="azione" data-cambia>Cambia persona</button>
         <button class="azione" data-blocca>Blocca l'app</button>
