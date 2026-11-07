@@ -132,13 +132,30 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .schede { scroll-margin-top: 16px; }
 
 /* Due schede nel pasto: stessi alimenti o altri alimenti */
-.schede { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-.schede button { padding: 10px 12px; text-align: left; border: 2px solid var(--segno); border-radius: 12px; font-weight: 700; color: var(--segno); line-height: 1.2; }
+.schede { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 14px; }
+.schede button { padding: 9px 9px; font-size: 15px; text-align: left; border: 2px solid var(--segno); border-radius: 12px; font-weight: 700; color: var(--segno); line-height: 1.2; }
 .schede button small { display: block; font-weight: 400; font-size: 14px; margin-top: 2px; }
 .schede button[aria-pressed=true] { background: var(--segno); color: #fff; }
 .attesa-riga { font-size: 15px; color: var(--tenue); margin: 2px 0 6px; }
 .attesa-riga .etichetta { margin-right: 4px; }
 .corpo h2.dopo { margin-top: 26px; }
+
+/* Ricette pubblicate */
+.carte { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 0 28px; margin-top: 6px; }
+.carta a { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 10px 0; align-items: center; border-top: 1px solid var(--filo); }
+.carta strong { display: block; line-height: 1.25; }
+.carta .pronto { display: block; color: var(--tenue); font-size: 15px; margin-top: 3px; }
+.foto { display: block; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--filo); }
+.foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.foto.grande { aspect-ratio: 3 / 2; margin: 8px 0 4px; }
+.eroe h3.sopra { font: 700 17px var(--testo); margin-top: 18px; }
+.azione.piena { display: flex; justify-content: center; width: 100%; margin: 0 0 8px; background: var(--inchiostro); color: #fff; border-color: var(--inchiostro); }
+.calcola { margin-top: 22px; padding-top: 4px; border-top: 2px solid var(--filo); }
+.calcola label { display: block; color: var(--tenue); font-size: 15px; margin: 4px 0 2px; }
+.calcola input { width: 104px; height: 48px; padding: 0 12px; border: 2px solid var(--inchiostro); border-radius: 10px; font-size: 20px; background: #fff; }
+.calcola output { font-size: 16px; line-height: 1.35; }
+.calcola output b { font: 400 22px var(--titolo); }
+.calcola small { color: var(--tenue); font-size: 14px; }
 
 /* Apporto del pasto */
 .apporto { width: 100%; border-collapse: collapse; margin: 8px 0 4px; font-size: 16px; }
