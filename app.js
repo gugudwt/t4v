@@ -22,7 +22,7 @@ const oraDelPasto = () => {
   const h = new Date().getHours();
   return h < 10 ? 'colazione' : h < 15 ? 'pranzo' : h < 18 ? 'merenda' : 'cena';
 };
-const filtro = { pasto: oraDelPasto(), veloci: false, testo: '' };
+const filtro = { pasto: oraDelPasto(), veloci: false, testo: '', sezione: 'stessi' };
 
 /* Memoria del telefono: può mancare, l'app deve funzionare lo stesso */
 const memoria = {
@@ -219,6 +219,24 @@ function ricetteDelPasto(m) {
   return [...mappa.values()].filter(r => persone().some(p => r.per.includes(p)));
 }
 
+const altriDelPasto = m => (m.altri || []).filter(x => persone().every(p => x[p]));
+
+/* Tabella dell'apporto: i numeri del piano accanto a quelli del pasto scelto */
+function tabellaApporto(righe) {
+  const testa = '<tr><th></th><th>kcal</th><th>Proteine</th><th>Carb.</th><th>Grassi</th></tr>';
+  const corpo = righe.map(([nome, v]) => `<tr><th>${esc(nome)}</th><td>${v[3]}</td><td>${v[0]} g</td><td>${v[1]} g</td><td>${v[2]} g</td></tr>`).join('');
+  return `<table class="apporto"><thead>${testa}</thead><tbody>${corpo}</tbody></table>`;
+}
+
+function rigaAltro(x, m, gid, pid) {
+  const s = D.altriPasti[x.id];
+  const scarto = Math.max(...persone().map(p => Math.abs(x[p].s[3] - m.apporto[p][3]) / m.apporto[p][3]));
+  const pct = Math.round(scarto * 100);
+  return `<li><a href="#/altro/${gid}/${pid}/${x.id}">
+    <span class="tempo">${s.a}<small>min</small></span>
+    <span><strong>${esc(s.t)}</strong><span class="pronto">${pct ? `Calorie come il piano, scarto ${pct}%` : 'Stesse calorie del piano'}</span></span></a></li>`;
+}
+
 /* Oggi e i giorni */
 function vistaGiorno(gid) {
   const g = giorno(gid);
@@ -228,7 +246,8 @@ function vistaGiorno(gid) {
   const fasce = PASTI.map(([pid, nome]) => {
     const m = g.pasti[pid];
     const n = ricetteDelPasto(m).length;
-    const testa = `<div class="fascia-testa"><h2>${esc(nome)}</h2>${n ? `<span>${n} ricette</span>` : ''}</div>`;
+    const k = altriDelPasto(m).length;
+    const testa = `<div class="fascia-testa"><h2>${esc(nome)}</h2>${n ? `<span>${n} ricette${k ? `, ${k} alternative` : ''}</span>` : ''}</div>`;
     const piatto = m.piatto ? `<p class="piatto">${esc(m.piatto)}</p>` : '';
     const prime = ricetteDelPasto(m).sort((x, y) => D.ricette[x.id].a - D.ricette[y.id].a).slice(0, 4);
     const anteprima = prime.length ? `<ul class="anteprima">${prime.map(r => `<li><b>${D.ricette[r.id].a}</b><span>${esc(D.ricette[r.id].t)}</span></li>`).join('')}</ul>` : '';
@@ -270,6 +289,7 @@ function vistaPasto(gid, pid) {
   const g = giorno(gid), m = g.pasti[pid];
   disegnaNav('oggi');
   const lista = ricetteDelPasto(m).sort((x, y) => D.ricette[x.id].a - D.ricette[y.id].a);
+  const altri = altriDelPasto(m).sort((x, y) => D.altriPasti[x.id].a - D.altriPasti[y.id].a);
   let ricette;
   const soloDi = k => lista.filter(r => r.per === k || r.per === k + k);
   const comuni = lista.filter(r => r.per.includes('a') && r.per.includes('c'));
@@ -289,12 +309,26 @@ function vistaPasto(gid, pid) {
       <h1>${esc(NOME_PASTO[pid])}</h1>
       ${m.piatto ? `<p class="piatto">${esc(m.piatto)}</p>` : ''}
       ${tabella(m, { gid })}
+      ${altri.length ? `<button class="cambia" data-sezione="altri" data-vai>Cambia tutto il pasto<small>${altri.length} alternative con lo stesso apporto</small></button>` : ''}
       ${dividi(m)}
     </section>
     <section class="corpo" data-pasto="${pid}">
-      <h2>Ricette</h2>
-      <p class="sotto">Dalla più veloce alla più elaborata, con gli alimenti e i grammi di questo pasto. Il tempo è quello di lavoro.</p>
-      ${ricette}${nota}${riso}
+      <div class="schede" role="group" aria-label="Che cosa vedere">
+        <button data-sezione="stessi" aria-pressed="${filtro.sezione === 'stessi'}">Stessi alimenti<small>${lista.length} ricette</small></button>
+        <button data-sezione="altri" aria-pressed="${filtro.sezione === 'altri'}">Altri alimenti<small>${altri.length} alternative</small></button>
+      </div>
+      <div data-pannello="stessi"${filtro.sezione === 'stessi' ? '' : ' hidden'}>
+        <p class="sotto">Dalla più veloce alla più elaborata, con gli alimenti e i grammi di questo pasto. Il tempo è quello di lavoro.</p>
+        ${ricette}${nota}${riso}
+      </div>
+      <div data-pannello="altri"${filtro.sezione === 'altri' ? '' : ' hidden'}>
+        <p class="sotto">Un pasto diverso con lo stesso apporto. I grammi sono calcolati per ciascuno; pane e olio della giornata non cambiano.</p>
+        <p class="attesa-riga"><span class="etichetta attesa">Da confermare</span> Il piano non li prevede: chiedi alla dottoressa prima di usarli.</p>
+        <h3>Il pasto del piano</h3>
+        ${tabellaApporto(persone().map(p => [nomeDi(p), m.apporto[p]]))}
+        <h3>Alternative</h3>
+        ${altri.length ? `<ol class="scala">${altri.map(x => rigaAltro(x, m, gid, pid)).join('')}</ol>` : '<p class="vuoto">Per questo pasto non ci sono alternative con lo stesso apporto per tutti e due. Prova a scegliere una persona sola.</p>'}
+      </div>
     </section></div>`;
 }
 
@@ -319,6 +353,31 @@ function vistaRicetta(gid, pid, rid) {
       <h2>Come si fa</h2>
       <ol class="passi">${r.p.map(s => `<li><span>${esc(s)}</span></li>`).join('')}</ol>
       <p class="promemoria">${olio ? `Questa ricetta usa ${esc(olio)}, dal conto del giorno. ` : ''}Pesa tutto a crudo, solo la parte che si mangia.</p>
+    </section></div>`;
+}
+
+/* Un pasto alternativo */
+function vistaAltro(gid, pid, xid) {
+  const g = giorno(gid), m = g.pasti[pid];
+  const x = (m.altri || []).find(y => y.id === xid), s = D.altriPasti[xid];
+  if (!x || !s) return location.replace(`#/pasto/${gid}/${pid}`);
+  disegnaNav('oggi');
+  const qui = persone().filter(p => x[p]);
+  const voci = { a: qui.includes('a') ? x.a.v : [], c: qui.includes('c') ? x.c.v : [] };
+  const olio = s.o ? `${s.o} ${s.o === 1 ? 'cucchiaino' : 'cucchiaini'} d'olio a testa` : '';
+  app.innerHTML = `<div class="pannelli"><section class="eroe ricetta" data-pasto="${pid}">
+      <div class="eroe-sopra"><a class="indietro" href="#/pasto/${gid}/${pid}">${esc(NOME_PASTO[pid])}, ${esc(g.nome.toLowerCase())}</a>${bottoniChi()}</div>
+      <h1>${esc(s.t)}</h1>
+      <div class="meta"><span><b>${s.a} min</b> di lavoro</span>${s.m > s.a ? `<span><b>${s.m} min</b> in tutto</span>` : ''}</div>
+      ${tabella(m, { voci })}
+    </section>
+    <section class="corpo" data-pasto="${pid}">
+      <p class="attesa-riga"><span class="etichetta attesa">Da confermare</span> Questo pasto non è nel piano: chiedi alla dottoressa prima di usarlo.</p>
+      <h2>Confronto con il piano</h2>
+      ${qui.map(p => `${chi === 'ac' ? `<h3>${esc(nomeDi(p))}</h3>` : ''}${tabellaApporto([['Piano', m.apporto[p]], ['Questo pasto', x[p].s]])}`).join('')}
+      <h2 class="dopo">Come si fa</h2>
+      <ol class="passi">${s.p.map(t => `<li><span>${esc(t)}</span></li>`).join('')}</ol>
+      <p class="promemoria">${olio ? `Questo pasto usa ${esc(olio)}, dal conto del giorno. ` : ''}Pesa tutto a crudo, solo la parte che si mangia.</p>
     </section></div>`;
 }
 
@@ -508,6 +567,7 @@ function disegna() {
     case 'giorno': return giorno(resto[0]) ? vistaGiorno(resto[0]) : vistaGiorno(oggiId());
     case 'pasto': return giorno(resto[0]) && resto[1] in NOME_PASTO && resto[1] !== 'arco' ? vistaPasto(resto[0], resto[1]) : vistaGiorno(oggiId());
     case 'ricetta': return giorno(resto[0]) && resto[1] in NOME_PASTO ? vistaRicetta(resto[0], resto[1], resto[2]) : vistaGiorno(oggiId());
+    case 'altro': return giorno(resto[0]) && resto[1] in NOME_PASTO ? vistaAltro(resto[0], resto[1], resto[2]) : vistaGiorno(oggiId());
     case 'ricette': return vistaRicette();
     case 'alimenti': return vistaAlimenti();
     case 'regole': return vistaRegole();
@@ -523,7 +583,7 @@ window.addEventListener('hashchange', () => {
 });
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-chi],[data-scegli],[data-alimento],[data-scheda],[data-chiudi],[data-filtro],[data-veloci],[data-cambia],[data-blocca]');
+  const t = e.target.closest('[data-chi],[data-scegli],[data-alimento],[data-scheda],[data-sezione],[data-chiudi],[data-filtro],[data-veloci],[data-cambia],[data-blocca]');
   if (e.target === foglio) return foglio.close();
   if (!t) return;
   const d = t.dataset;
@@ -539,6 +599,11 @@ document.addEventListener('click', e => {
     fogliAlternative(d.giorno, d.alimento);
   } else if (d.scheda) {
     fogliScheda(d.scheda);
+  } else if (d.sezione) {
+    filtro.sezione = d.sezione;
+    document.querySelectorAll('[data-sezione]').forEach(b => b.setAttribute('aria-pressed', b.dataset.sezione === filtro.sezione));
+    document.querySelectorAll('[data-pannello]').forEach(p => { p.hidden = p.dataset.pannello !== filtro.sezione; });
+    if ('vai' in d) document.querySelector('.schede').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else if ('chiudi' in d) {
     foglio.close();
   } else if (d.filtro) {
